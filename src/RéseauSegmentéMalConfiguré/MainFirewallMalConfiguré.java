@@ -5,15 +5,44 @@ import Modele.*;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * scénario du réseau segmenté
+ * avec un firewall mal configuré.
+ *
+ * Réseau avec mécanisme de segmentation mais règles
+ * de filtrage  insuffisantes pour empêcherla propagation du ver.
+ *
+ * permet d'évaluer l'impact d'une mauvaise
+ * configuration du firewall sur le niveau global
+ * de sécurité du réseau.
+ */
+
 public class MainFirewallMalConfiguré {
 
+    /**
+     *
+     *
+     * Lance calcul des statistiques
+     * de contamination pour ce scénario.
+     *
+     */
     public static void main(String[] args) {
-        runScenario();
+        runStatistics();
     }
 
-    public static void runScenario() {
+    /**
+     * scénario du réseau segmenté
+     * avec un firewall mal configuré.
+     *
+     * Définition: connexions du graphe avec des probabilités
+     * relativement élevées car filtrage
+     * insuffisant des communications réseau.
+     *
+     */
+    public static ScenarioResult buildScenario() {
+
         NetworkGraph graph = new NetworkGraph();
-        // définition des Machines et de leurs états
+
         Machine internet = new Machine("Internet", MachineState.IMMUNE);
         Machine siteWeb = new Machine("Site Web", MachineState.SUSCEPTIBLE);
         Machine serveurWeb = new Machine("Serveur Web", MachineState.SUSCEPTIBLE);
@@ -24,7 +53,6 @@ public class MainFirewallMalConfiguré {
         Machine vpnGateway = new Machine("VPN Gateway", MachineState.IMMUNE);
         Machine posteAdmin = new Machine("Poste Admin", MachineState.INFECTED);
 
-        //définition des connexions en tre les machines et leurs probabilités (A garder)
         graph.addConnexion(internet, siteWeb, Protocol.HTTP, 0.30);
         graph.addConnexion(siteWeb, serveurWeb, Protocol.HTTP, 0.50);
 
@@ -41,10 +69,6 @@ public class MainFirewallMalConfiguré {
         graph.addConnexion(serveurApp, firewall, Protocol.RDP, 0.30);
         graph.addConnexion(firewall, database, Protocol.RDP, 0.25);
 
-        graph.printGraph();
-
-        serveurCloud.setState(MachineState.INFECTED);
-
         List<Machine> machines = Arrays.asList(
                 internet,
                 siteWeb,
@@ -57,10 +81,54 @@ public class MainFirewallMalConfiguré {
                 firewall
         );
 
-        SimulateVer simulation = new SimulateVer(graph);
-        simulation.simulateInfection(machines, 5);
+        return new ScenarioResult(graph, machines);
+    }
 
+    /**
+     * simulation simple de propagation.
+     *
+     * Graphe construit puis simulation du ver.
+     */
+    public static void runScenario() {
+
+        ScenarioResult result = buildScenario();
+
+        result.getGraph().printGraph();
+
+        SimulateVer simulation = new SimulateVer(result.getGraph());
+
+        simulation.simulateInfection(result.getMachines(), 10);
+    }
+
+    /**
+     * Exécute plusieurs simulations du scénario
+     * afin de calculer des statistiques de contamination.
+     *
+     * résultats = estimation du pourcentage d'infection du serveur d'applications
+     * et de la base de données = cas d'un firewall
+     * mal configuré.
+     */
+    public static void runStatistics() {
+
+        int runs = 100;
+        int steps = 10;
+
+        SimulationStats stats = new SimulationStats(runs);
+
+        for (int i = 0; i < runs; i++) {
+
+            ScenarioResult result = buildScenario();
+
+            SimulateVer simulation = new SimulateVer(result.getGraph());
+
+            simulation.simulateInfection(
+                    result.getMachines(),
+                    steps
+            );
+
+            stats.record(result.getMachines());
+        }
+
+        stats.printResults("Réseau segmenté - firewall mal configuré");
     }
 }
-
-
